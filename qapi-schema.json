@@ -2975,9 +2975,11 @@
 #
 # @passthrough: TPM passthrough type
 #
+# @xenstubdoms: TPM xenstubdoms type (since 2.4)
+#
 # Since: 1.5
 ##
-{ 'enum': 'TpmType', 'data': [ 'passthrough' ] }
+{ 'enum': 'TpmType', 'data': [ 'passthrough', 'xenstubdoms' ] }
 
 ##
 # @query-tpm-types:
@@ -3006,6 +3008,15 @@
                                              '*cancel-path' : 'str'} }
 
 ##
+# @TPMXenstubdomsOptions:
+#
+# Information about the TPM xenstubdoms type
+#
+# Since: 2.4
+##
+{ 'type': 'TPMXenstubdomsOptions', 'data': {  } }
+
+##
 # @TpmTypeOptions:
 #
 # A union referencing different TPM backend types' configuration options
@@ -3015,7 +3026,9 @@
 # Since: 1.5
 ##
 { 'union': 'TpmTypeOptions',
-   'data': { 'passthrough' : 'TPMPassthroughOptions' } }
+  'data': { 'passthrough' : 'TPMPassthroughOptions',
+            'xenstubdoms' : 'TPMXenstubdomsOptions' } }
+##
 
 ##
 # @TpmInfo:
