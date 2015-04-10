@@ -65,11 +65,17 @@ typedef struct TPMXenstubdomsState TPMXenstubdomsState;
 /* Functions */
 static void tpm_xenstubdoms_cancel_cmd(TPMBackend *tb);
 
-static int tpm_xenstubdoms_unix_transfer(const TPMLocality *locty_data)
+static int tpm_xenstubdoms_unix_transfer(const TPMLocality *locty_data,
+                                         bool *selftest_done)
 {
     size_t rlen;
     struct XenDevice *xendev;
     int ret;
+    bool is_selftest;
+    const struct tpm_resp_hdr *hdr;
+
+    is_selftest = tpm_util_is_selftest(locty_data->w_buffer.buffer,
+                                       locty_data->w_buffer.size);
 
     xendev = xen_find_xendev("vtpm", xen_domid, xenstore_dev);
     if (xendev == NULL) {
@@ -81,12 +87,26 @@ static int tpm_xenstubdoms_unix_transfer(const TPMLocality *locty_data)
                     locty_data->r_buffer.size, locty_data->w_offset);
     if (ret < 0) {
         xen_be_printf(xendev, 0, "Can not send vtpm command.\n");
-        return -1;
+        goto err_exit;
     }
 
-    vtpm_recv(xendev, locty_data->r_buffer.buffer, locty_data->r_buffer.size,
-              &rlen);
-    return 0;
+    ret = vtpm_recv(xendev, locty_data->r_buffer.buffer,
+                    locty_data->r_buffer.size, &rlen);
+    if (ret < 0) {
+        xen_be_printf(xendev, 0, "vtpm reception command error.\n");
+        goto err_exit;
+    }
+
+    if (is_selftest && (ret >= sizeof(struct tpm_resp_hdr))) {
+        hdr = (struct tpm_resp_hdr *)locty_data->r_buffer.buffer;
+        *selftest_done = (be32_to_cpu(hdr->errcode) == 0);
+    }
+
+err_exit:
+    if (ret < 0) {
+        xen_be_printf(xendev, 0, "vtpm command error.\n");
+    }
+    return ret;
 }
 
 static void tpm_xenstubdoms_worker_thread(gpointer data,
@@ -94,13 +114,15 @@ static void tpm_xenstubdoms_worker_thread(gpointer data,
 {
     TPMXenstubdomsThreadParams *thr_parms = user_data;
     TPMBackendCmd cmd = (TPMBackendCmd)data;
+    bool selftest_done = false;
 
     switch (cmd) {
     case TPM_BACKEND_CMD_PROCESS_CMD:
-        tpm_xenstubdoms_unix_transfer(thr_parms->tpm_state->locty_data);
+        tpm_xenstubdoms_unix_transfer(thr_parms->tpm_state->locty_data,
+                                      &selftest_done);
         thr_parms->recv_data_callback(thr_parms->tpm_state,
                                       thr_parms->tpm_state->locty_number,
-                                      false);
+                                      selftest_done);
         break;
     case TPM_BACKEND_CMD_INIT:
     case TPM_BACKEND_CMD_END:

@@ -34,6 +34,7 @@ void tpm_backend_thread_create(TPMBackendThread *tbt,
 void tpm_backend_thread_end(TPMBackendThread *tbt);
 void tpm_backend_thread_tpm_reset(TPMBackendThread *tbt,
                                   GFunc func, gpointer user_data);
+bool tpm_util_is_selftest(const uint8_t *in, uint32_t in_len);
 
 typedef enum TPMBackendCmd {
     TPM_BACKEND_CMD_INIT = 1,
